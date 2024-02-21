@@ -1,0 +1,29 @@
+version: '3'
+services:
+  frontend:
+    build: ./frontend
+    ports:
+      - "3001:80"
+  backend:
+    build: ./backend
+    ports:
+      - "3000:3000"
+    stdin_open: true
+    environment:
+      - SOLR_URL=http://solr:8983/solr/
+      - DB_HOST=sql6.freesqldatabase.com
+      - DB_USER=sql6685139
+      - DB_PASSWORD=aJsGzE9eIr
+      - DB_NAME=sql6685139
+  solr:
+    image: solr:8.11.1
+    ports:
+      - "8983:8983"
+    volumes:
+      - solr_data:/var/solr
+      - ./solr_config:/opt/solr/server/solr/mycores/product/conf
+    command:
+      - solr-precreate
+      - product
+volumes:
+  solr_data:

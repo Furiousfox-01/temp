@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+  <!-- allproducts -->
+
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>All Products</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css"
+      integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65"
+      crossorigin="anonymous"
+    />
+  </head>
+
+  <body>
+    
+    <h1 id="tit" class="display-4 mb-4 text-center">All Products</h1>
+    <h6 id="tit1" class="display-6 mb-4 text-center"></h6>
+
+    <div class="container mb-3">
+      <button class="btn btn-primary" onclick="redirectToHome()">Home</button>
+      <div class="container mb-3">
+        <div class="row">
+          <div class="col-md-6 offset-md-3">
+            <div class="input-group">
+              <input
+                type="text"
+                class="form-control"
+                id="searchInput"
+                placeholder="Search products..."
+                aria-label="Search products"
+                oninput="search()"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="row mb-3">
+      <div class="col-md-6 offset-md-3">
+        <select
+          id="categoryDropdown"
+          class="form-select"
+          onchange="navigateToCategory()"
+        >
+          <option value="">Select a category...</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="container">
+      <table class="table table-striped table-bordered table-hover mx-auto">
+        <thead>
+          <tr>
+            <th>Product Name</th>
+            <th>Brand</th>
+            <th>Category Name</th>
+            <th>Price</th>
+            <th>Discounted Price</th>
+            <th>Created Date</th>
+            <th>Category ID</th>
+          </tr>
+        </thead>
+        <tbody id="products-list"></tbody>
+      </table>
+    </div>
+    <div class="container text-center">
+      <div id="pagination" class="mt-3"></div>
+      <br />
+    </div>
+    <script>
+    const ITEMS_PER_PAGE = 5;
+
+    fetch("http://localhost:3000/categories")
+        .then((response) => response.json())
+        .then((data) => {
+            const categoryDropdown = document.getElementById("categoryDropdown");
+            data.forEach((category) => {
+                const option = document.createElement("option");
+                option.value = category.category_id;
+                option.text = category.category_name;
+                categoryDropdown.appendChild(option);
+            });
+        })
+        .catch((error) => {
+            console.error("Error fetching categories:", error);
+        });
+
+    async function search() {
+        const query = document.getElementById("searchInput").value;
+        if (!query) {
+            fetchProducts(currentPage);
+            return;
+        }
+        const response = await fetch(`http://localhost:3000/api/search?q=${query}`);
+        if (!response.ok)
+            throw new Error(`Error: ${response.status} - ${response.statusText}`);
+        const data = await response.json();
+                document.getElementById("tit").innerHTML=""
+        document.getElementById("tit1").innerHTML=`search results for ${query}`
+
+        displayData(data.results);
+        document.getElementById("pagination").innerHTML = "";
+    }
+
+    function displayData(data) {
+        const productsList = document.getElementById("products-list");
+        productsList.innerHTML = "";
+
+        if (data.length == 0) {
+            productsList.innerHTML = `<tr><td colspan="7">No records found</td></tr>`;
+            return;
+        }
+
+        data.forEach((product) => {
+            const row = document.createElement("tr");
+            row.innerHTML = `
+                <td>${product.product_name}</td>
+                <td>${product.brand}</td>
+                <td>${product.category_name}</td>
+                <td>${product.price}</td>
+                <td>${product.discounted_price}</td>
+                <td>${new Date(product.created_date).toLocaleDateString()}</td>
+                <td>${product.category_id}</td>
+            `;
+            productsList.appendChild(row);
+        });
+    }
+
+    let currentPage =
+        new URLSearchParams(window.location.search).get("page") || 1;
+    let hasNextPage = true;
+
+    function redirectToHome() {
+        window.location.href = "category.html";
+    }
+
+    function navigateToCategory() {
+        const selectedCategory =
+            document.getElementById("categoryDropdown").value;
+        if (selectedCategory) {
+            window.location.href = `products.html?cid=${selectedCategory}`;
+        }
+    }
+
+    async function fetchProducts(page) {
+        currentPage = page;
+        try {
+            const response = await fetch(`http://localhost:3000/products?page=${page}`);
+            if (response.ok) {
+                const data = await response.json();
+                displayData(data.results);
+                document.getElementById("tit1").innerHTML=""
+                document.getElementById("tit").innerHTML="All Products"
+
+                hasNextPage = data.hasNextPage;
+                const totalPages = Math.ceil(data.totalCount / ITEMS_PER_PAGE);
+                updatePagination(totalPages);
+            } 
+            else {
+                console.error(`Error: ${response.status} - ${response.statusText}`);
+                const productsList = document.getElementById("products-list");
+                const errorRow = document.createElement("tr");
+                errorRow.innerHTML = '<td colspan="7">Error fetching products</td>';
+                productsList.appendChild(errorRow);
+            }
+        } 
+        catch (error) {
+            console.error("Error fetching products:", error);
+            const productsList = document.getElementById("products-list");
+            productsList.innerHTML = `<tr><td colspan="7">Error fetching products</td></tr>`;
+        }
+    }
+
+function updatePagination(totalPages) {
+    const paginationDiv = document.getElementById("pagination");
+    paginationDiv.innerHTML = "";
+
+    const prevButton = document.createElement("button");
+    prevButton.className = "btn btn-secondary";
+    prevButton.innerText = "Previous";
+    prevButton.addEventListener("click", () => {
+        if (currentPage > 1) {
+            fetchProducts(currentPage - 1);
+        }
+    });
+
+    if (currentPage > 1) {
+        paginationDiv.appendChild(prevButton);
+    }
+
+    const maxVisibleButtons = 5; 
+    const startPage = Math.max(1, currentPage - Math.floor(maxVisibleButtons / 2));
+    const endPage = Math.min(totalPages, startPage + maxVisibleButtons - 1);
+
+    for (let i = startPage; i <= endPage; i++) {
+        const pageButton = document.createElement("button");
+        pageButton.className = "btn btn-outline-dark mx-1";
+        pageButton.innerText = i;
+        if (i === currentPage) {
+            pageButton.classList.add('active');
+        }
+        pageButton.addEventListener("click", () => {
+            fetchProducts(i);
+        });
+        paginationDiv.appendChild(pageButton);
+    }
+
+    const nextButton = document.createElement("button");
+    nextButton.className = "btn btn-secondary";
+    nextButton.innerText = "Next";
+    nextButton.addEventListener("click", () => {
+        if (hasNextPage) {
+            fetchProducts(currentPage + 1);
+        }
+    });
+
+    if (hasNextPage) {
+        paginationDiv.appendChild(nextButton);
+    }
+
+    const searchParams = new URLSearchParams(window.location.search);
+    searchParams.set("page", currentPage);
+    const newUrl = `${window.location.pathname}?${searchParams.toString()}`;
+    window.history.replaceState({}, "", newUrl);
+}
+
+    fetchProducts(Number(currentPage));
+</script>
+
+  </body>
+</html>
